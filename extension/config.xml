@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension>
+  <information>
+    <name>Kindle Aisleriot</name>
+    <id>kindle_aisleriot</id>
+    <version>0.1.0</version>
+  </information>
+  <menus>
+    <menu type="json" dynamic="true">menu.json</menu>
+  </menus>
+</extension>

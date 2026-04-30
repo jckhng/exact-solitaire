@@ -1,0 +1,14 @@
+# Native build outputs
+/kindle-aisleriot
+/smoke-test
+*.o
+
+# Generated package tree
+/dist/
+/release/extensions/
+/release/documents/
+/release/kindle-aisleriot-extension/
+
+# Editor/OS noise
+*~
+.DS_Store

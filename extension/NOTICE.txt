@@ -1,0 +1,15 @@
+Kindle Aisleriot
+================
+
+Unofficial Kindle-friendly solitaire game inspired by GNOME Aisleriot, with a
+Kindle-specific GTK2/Cairo Klondike interface.
+
+GNOME Aisleriot upstream project:
+  https://gitlab.gnome.org/GNOME/aisleriot
+
+This v0.1.0 practical port intentionally implements a focused Klondike subset;
+it is not a full port of the original Aisleriot Guile/Scheme game collection.
+
+The project is distributed with GPL-family, LGPL-family, and documentation
+license texts in LICENSES/.
+Runtime libraries bundled in this package keep their own upstream licenses.
