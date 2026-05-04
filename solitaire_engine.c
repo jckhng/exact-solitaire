@@ -30,6 +30,10 @@ static SolPile *pile_for_location(SolitaireGame *game, SolLocation loc)
         return &game->stock;
     case SOL_LOC_WASTE:
         return &game->waste;
+    case SOL_LOC_FREECELL:
+        if (loc.index >= 0 && loc.index < SOL_FREECELL_COUNT)
+            return &game->freecells[loc.index];
+        break;
     case SOL_LOC_FOUNDATION:
         if (loc.index >= 0 && loc.index < SOL_FOUNDATION_COUNT)
             return &game->foundations[loc.index];
@@ -55,8 +59,10 @@ static void save_history(SolitaireGame *game)
     if (game->history_count >= SOL_MAX_HISTORY) {
         memmove(game->history_stock, game->history_stock + 1, sizeof(game->history_stock[0]) * (SOL_MAX_HISTORY - 1));
         memmove(game->history_waste, game->history_waste + 1, sizeof(game->history_waste[0]) * (SOL_MAX_HISTORY - 1));
+        memmove(game->history_freecells, game->history_freecells + 1, sizeof(game->history_freecells[0]) * (SOL_MAX_HISTORY - 1));
         memmove(game->history_foundations, game->history_foundations + 1, sizeof(game->history_foundations[0]) * (SOL_MAX_HISTORY - 1));
         memmove(game->history_tableau, game->history_tableau + 1, sizeof(game->history_tableau[0]) * (SOL_MAX_HISTORY - 1));
+        memmove(game->history_mode, game->history_mode + 1, sizeof(game->history_mode[0]) * (SOL_MAX_HISTORY - 1));
         memmove(game->history_moves, game->history_moves + 1, sizeof(game->history_moves[0]) * (SOL_MAX_HISTORY - 1));
         game->history_count = SOL_MAX_HISTORY - 1;
     }
@@ -64,8 +70,10 @@ static void save_history(SolitaireGame *game)
     slot = game->history_count++;
     game->history_stock[slot] = game->stock;
     game->history_waste[slot] = game->waste;
+    memcpy(game->history_freecells[slot], game->freecells, sizeof(game->freecells));
     memcpy(game->history_foundations[slot], game->foundations, sizeof(game->foundations));
     memcpy(game->history_tableau[slot], game->tableau, sizeof(game->tableau));
+    game->history_mode[slot] = game->mode;
     game->history_moves[slot] = game->moves;
 }
 
@@ -73,8 +81,10 @@ static void restore_history(SolitaireGame *game, int slot)
 {
     game->stock = game->history_stock[slot];
     game->waste = game->history_waste[slot];
+    memcpy(game->freecells, game->history_freecells[slot], sizeof(game->freecells));
     memcpy(game->foundations, game->history_foundations[slot], sizeof(game->foundations));
     memcpy(game->tableau, game->history_tableau[slot], sizeof(game->tableau));
+    game->mode = game->history_mode[slot];
     game->moves = game->history_moves[slot];
 }
 
@@ -99,6 +109,11 @@ static void shuffle(SolCard cards[SOL_CARD_COUNT], guint32 seed)
 
 void solitaire_new(SolitaireGame *game, guint32 seed)
 {
+    solitaire_new_klondike(game, seed, 1);
+}
+
+void solitaire_new_klondike(SolitaireGame *game, guint32 seed, int draw_count)
+{
     SolCard deck[SOL_CARD_COUNT];
     int n = 0;
     int suit;
@@ -107,7 +122,8 @@ void solitaire_new(SolitaireGame *game, guint32 seed)
 
     memset(game, 0, sizeof(*game));
     game->seed = seed ? seed : 1u;
-    game->draw_count = 1;
+    game->mode = SOL_GAME_KLONDIKE;
+    game->draw_count = draw_count == 3 ? 3 : 1;
 
     for (suit = 0; suit < 4; suit++) {
         for (rank = 1; rank <= 13; rank++) {
@@ -120,7 +136,7 @@ void solitaire_new(SolitaireGame *game, guint32 seed)
 
     shuffle(deck, game->seed);
 
-    for (col = 0; col < SOL_TABLEAU_COUNT; col++) {
+    for (col = 0; col < SOL_KLONDIKE_TABLEAU_COUNT; col++) {
         int row;
         for (row = 0; row <= col; row++) {
             SolCard card = deck[--n];
@@ -133,10 +149,44 @@ void solitaire_new(SolitaireGame *game, guint32 seed)
         pile_push(&game->stock, deck[--n]);
 }
 
+void solitaire_new_freecell(SolitaireGame *game, guint32 seed)
+{
+    SolCard deck[SOL_CARD_COUNT];
+    int n = 0;
+    int suit;
+    int rank;
+    int i;
+
+    memset(game, 0, sizeof(*game));
+    game->seed = seed ? seed : 1u;
+    game->mode = SOL_GAME_FREECELL;
+    game->draw_count = 0;
+
+    for (suit = 0; suit < 4; suit++) {
+        for (rank = 1; rank <= 13; rank++) {
+            deck[n].rank = (unsigned char)rank;
+            deck[n].suit = (unsigned char)suit;
+            deck[n].face_up = TRUE;
+            n++;
+        }
+    }
+
+    shuffle(deck, game->seed);
+
+    for (i = 0; i < SOL_CARD_COUNT; i++)
+        pile_push(&game->tableau[i % SOL_TABLEAU_COUNT], deck[i]);
+}
+
 void solitaire_restart(SolitaireGame *game)
 {
     guint32 seed = game->seed;
-    solitaire_new(game, seed);
+    SolGameMode mode = game->mode;
+    int draw_count = game->draw_count;
+
+    if (mode == SOL_GAME_FREECELL)
+        solitaire_new_freecell(game, seed);
+    else
+        solitaire_new_klondike(game, seed, draw_count);
 }
 
 gboolean solitaire_can_undo(const SolitaireGame *game)
@@ -154,12 +204,41 @@ gboolean solitaire_undo(SolitaireGame *game)
     return TRUE;
 }
 
-static gboolean can_stack_on_tableau(SolCard moving, const SolPile *dest)
+static int freecell_empty_count(const SolitaireGame *game)
+{
+    int count = 0;
+    int i;
+
+    for (i = 0; i < SOL_FREECELL_COUNT; i++) {
+        if (game->freecells[i].count == 0)
+            count++;
+    }
+    return count;
+}
+
+static gboolean valid_tableau_sequence(const SolPile *src, int card_index)
+{
+    int i;
+
+    for (i = card_index; i + 1 < src->count; i++) {
+        SolCard upper = src->cards[i];
+        SolCard lower = src->cards[i + 1];
+        if (!upper.face_up || !lower.face_up)
+            return FALSE;
+        if (solitaire_is_red_suit(upper.suit) == solitaire_is_red_suit(lower.suit))
+            return FALSE;
+        if (upper.rank != lower.rank + 1)
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static gboolean can_stack_on_tableau(const SolitaireGame *game, SolCard moving, const SolPile *dest)
 {
     SolCard top;
 
     if (dest->count == 0)
-        return moving.rank == 13;
+        return game->mode == SOL_GAME_FREECELL || moving.rank == 13;
 
     top = dest->cards[dest->count - 1];
     return top.face_up && solitaire_is_red_suit(top.suit) != solitaire_is_red_suit(moving.suit) && top.rank == moving.rank + 1;
@@ -197,6 +276,8 @@ static gboolean normalize_source(const SolitaireGame *game, SolLocation *from, i
             if (!src->cards[i].face_up)
                 return FALSE;
         }
+        if (game->mode == SOL_GAME_FREECELL && !valid_tableau_sequence(src, from->card_index))
+            return FALSE;
         *move_count = src->count - from->card_index;
         return TRUE;
     }
@@ -224,10 +305,15 @@ gboolean solitaire_can_move(const SolitaireGame *game, SolLocation from, SolLoca
         return FALSE;
 
     moving = src->cards[from.card_index];
+    if (game->mode == SOL_GAME_FREECELL && from.type == SOL_LOC_TABLEAU && move_count > freecell_empty_count(game) + 1)
+        return FALSE;
+
     if (to.type == SOL_LOC_TABLEAU)
-        return can_stack_on_tableau(moving, dest);
+        return can_stack_on_tableau(game, moving, dest);
     if (to.type == SOL_LOC_FOUNDATION)
         return move_count == 1 && can_stack_on_foundation(moving, dest);
+    if (to.type == SOL_LOC_FREECELL)
+        return game->mode == SOL_GAME_FREECELL && move_count == 1 && dest->count == 0;
 
     return FALSE;
 }
@@ -254,7 +340,7 @@ SolMoveResult solitaire_move(SolitaireGame *game, SolLocation from, SolLocation 
     for (i = 0; i < move_count; i++)
         pile_push(dest, moving[i]);
 
-    if (from.type == SOL_LOC_TABLEAU && src->count > 0)
+    if (game->mode == SOL_GAME_KLONDIKE && from.type == SOL_LOC_TABLEAU && src->count > 0)
         src->cards[src->count - 1].face_up = TRUE;
 
     game->moves++;
@@ -264,6 +350,9 @@ SolMoveResult solitaire_move(SolitaireGame *game, SolLocation from, SolLocation 
 SolMoveResult solitaire_draw(SolitaireGame *game)
 {
     int i;
+
+    if (game->mode == SOL_GAME_FREECELL)
+        return SOL_MOVE_INVALID;
 
     save_history(game);
 
@@ -307,13 +396,18 @@ int solitaire_foundation_count(const SolitaireGame *game)
     return total;
 }
 
+int solitaire_tableau_count(const SolitaireGame *game)
+{
+    return game->mode == SOL_GAME_FREECELL ? SOL_TABLEAU_COUNT : SOL_KLONDIKE_TABLEAU_COUNT;
+}
+
 int solitaire_face_down_count(const SolitaireGame *game)
 {
     int total = 0;
     int col;
     int i;
 
-    for (col = 0; col < SOL_TABLEAU_COUNT; col++) {
+    for (col = 0; col < solitaire_tableau_count(game); col++) {
         for (i = 0; i < game->tableau[col].count; i++) {
             if (!game->tableau[col].cards[i].face_up)
                 total++;
