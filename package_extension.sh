@@ -23,6 +23,7 @@ cp "$ROOT/assets/"* "$EXT_ROOT/assets/"
 cp "$ROOT/licenses/COPYING" "$EXT_ROOT/LICENSES/COPYING"
 cp "$ROOT/licenses/COPYING-DOCS" "$EXT_ROOT/LICENSES/COPYING-DOCS"
 cp "$ROOT/licenses/COPYING.GPL3" "$EXT_ROOT/LICENSES/COPYING.GPL3"
+cp "$ROOT/licenses/COPYING.LGPL2.1" "$EXT_ROOT/LICENSES/COPYING.LGPL2.1"
 cp "$ROOT/licenses/COPYING.LGPL3" "$EXT_ROOT/LICENSES/COPYING.LGPL3"
 
 if docker exec "$CONTAINER" /bin/bash -lc 'test -f /src/kindle-aisleriot/kindle-aisleriot' >/dev/null 2>&1; then

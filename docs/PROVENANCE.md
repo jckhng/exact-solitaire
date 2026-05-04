@@ -16,6 +16,15 @@ by GNOME Aisleriot.
 - Small visual assets copied into `assets/`.
 - GPL-family license basis.
 
+## Card Artwork
+
+- SVG Cards 2.0 by David Bellot is bundled as `assets/svg-cards-2.0.svg`.
+- Source: <https://commons.wikimedia.org/wiki/File:Svg-cards-2.0.svg>
+- Original project source: <http://svg-cards.sourceforge.net/>
+- License: GNU Lesser General Public License, version 2.1 or later.
+- Kindle Aisleriot overlays high-contrast corner labels on top of the SVG card
+  faces for readability on grayscale e-ink displays.
+
 ## What Is Kindle-Specific
 
 - Focused Klondike-style rules engine in `solitaire_engine.c`.

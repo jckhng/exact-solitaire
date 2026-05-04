@@ -1,0 +1,11 @@
+SVG Cards 2.0
+
+Source: https://commons.wikimedia.org/wiki/File:Svg-cards-2.0.svg
+Original project source: http://svg-cards.sourceforge.net/
+Author: David Bellot
+Date: 8 December 2005
+License: GNU Lesser General Public License, version 2.1 or later
+
+This package uses Svg-cards-2.0.svg as the full-card artwork for Kindle
+Aisleriot. The game overlays high-contrast corner labels for readability on
+Kindle e-ink displays.

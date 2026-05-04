@@ -7,6 +7,13 @@ Kindle-specific GTK2/Cairo Klondike interface.
 GNOME Aisleriot upstream project:
   https://gitlab.gnome.org/GNOME/aisleriot
 
+Card artwork:
+  SVG Cards 2.0
+  Author: David Bellot
+  Source: https://commons.wikimedia.org/wiki/File:Svg-cards-2.0.svg
+  Original project: http://svg-cards.sourceforge.net/
+  License: GNU Lesser General Public License, version 2.1 or later
+
 This v0.1.0 practical port intentionally implements a focused Klondike subset;
 it is not a full port of the original Aisleriot Guile/Scheme game collection.
 

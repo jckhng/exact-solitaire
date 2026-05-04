@@ -8,6 +8,8 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <cairo.h>
+#include <librsvg/rsvg.h>
+#include <librsvg/rsvg-cairo.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -20,6 +22,8 @@
 #define LOG_PATH "/mnt/us/kindle-aisleriot.log"
 #define SAVE_PATH "/mnt/us/documents/kindle-aisleriot.save"
 #define SAVE_MAGIC "KAISLERIOT1"
+#define SVG_CARDS_PATH "/mnt/us/extensions/kindle-aisleriot/assets/svg-cards-2.0.svg"
+#define SVG_CARDS_DEV_PATH "assets/svg-cards-2.0.svg"
 #define KINDLE_APP_WIDTH 1072
 #define KINDLE_APP_HEIGHT 1448
 
@@ -63,6 +67,7 @@ typedef struct {
     double card_w;
     double card_h;
     double tableau_gap;
+    RsvgHandle *card_svg;
 } AppState;
 
 typedef struct {
@@ -72,6 +77,147 @@ typedef struct {
 } SaveFile;
 
 static AppState app;
+
+/* --- Per-card raster cache ---
+ *
+ * Rendering SVG sub-elements on every paint is far too slow for Kindle's ARM
+ * CPU.  For each card we render the sub-element once into a full-document-sized
+ * scratch surface (no clip, so <use> cross-references resolve correctly and the
+ * content appears at its true SVG position regardless of viewBox offsets).  We
+ * then pixel-scan the scratch to find the exact rendered bounds — this sidesteps
+ * all get_position_sub / get_dimensions_sub coordinate-space ambiguity that
+ * causes face cards to appear distorted or transparent.  The resulting per-card
+ * surface is cached; subsequent paints are simple image blits.
+ */
+static void        app_log(const char *message);
+static const char *card_suit_id(int suit);
+
+#define CARD_CACHE_BACK  52
+#define CARD_CACHE_TOTAL 53
+
+static cairo_surface_t *s_card_surf[CARD_CACHE_TOTAL];
+static double           s_surf_card_w = 0.0;
+static double           s_surf_card_h = 0.0;
+
+static int card_surf_key(int suit, int rank)
+{
+    return suit * 13 + (rank - 1);
+}
+
+static void card_surf_clear(void)
+{
+    int i;
+    for (i = 0; i < CARD_CACHE_TOTAL; i++) {
+        if (s_card_surf[i]) {
+            cairo_surface_destroy(s_card_surf[i]);
+            s_card_surf[i] = NULL;
+        }
+    }
+    s_surf_card_w = s_surf_card_h = 0.0;
+}
+
+static void svg_atlas_clear(void)
+{
+    card_surf_clear();
+}
+
+/* Render the sub-element into a scratch surface, locate its actual pixel bounds
+ * via scan, then scale-extract into a target_w × target_h surface.
+ *
+ * Rendering into a full-document-sized scratch (with no custom clip) means all
+ * <use> cross-references resolve and the viewBox transform is applied normally.
+ * The pixel scan then finds the card's true position in the scratch regardless
+ * of what get_position_sub / get_dimensions_sub report. */
+static cairo_surface_t *make_card_surf(const char *id, double target_w, double target_h)
+{
+    char                   fragment[64];
+    RsvgDimensionData      full_dims;
+    cairo_surface_t       *scratch, *result;
+    cairo_t               *tcr;
+    const unsigned char   *data;
+    int                    stride, sw, sh;
+    int                    x, y, x_min, y_min, x_max, y_max;
+    double                 render_scale, sx, sy;
+
+    if (!app.card_svg) return NULL;
+    snprintf(fragment, sizeof(fragment), "#%s", id);
+    if (!rsvg_handle_has_sub(app.card_svg, fragment)) return NULL;
+
+    rsvg_handle_get_dimensions(app.card_svg, &full_dims);
+    if (full_dims.width <= 0 || full_dims.height <= 0) return NULL;
+
+    /* Render scratch at ~800 px tall for good quality after downscale to target. */
+    render_scale = 800.0 / (double)full_dims.height;
+    if (render_scale > 1.0) render_scale = 1.0;
+    sw = (int)(full_dims.width  * render_scale + 0.5);
+    sh = (int)(full_dims.height * render_scale + 0.5);
+
+    scratch = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sw, sh);
+    if (cairo_surface_status(scratch) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(scratch); return NULL;
+    }
+
+    tcr = cairo_create(scratch);
+    cairo_scale(tcr, render_scale, render_scale);
+    rsvg_handle_render_cairo_sub(app.card_svg, tcr, fragment);
+    cairo_destroy(tcr);
+
+    /* Scan for the bounding box of rendered pixels. */
+    cairo_surface_flush(scratch);
+    data   = cairo_image_surface_get_data(scratch);
+    stride = cairo_image_surface_get_stride(scratch);
+
+    x_min = sw; y_min = sh; x_max = -1; y_max = -1;
+    for (y = 0; y < sh; y++) {
+        const unsigned char *row = data + (size_t)y * stride;
+        for (x = 0; x < sw; x++) {
+            if (row[x * 4 + 3] > 8) {  /* alpha byte (little-endian ARGB32) */
+                if (x < x_min) x_min = x;
+                if (x > x_max) x_max = x;
+                if (y < y_min) y_min = y;
+                if (y > y_max) y_max = y;
+            }
+        }
+    }
+
+    if (x_max < x_min || y_max < y_min) {
+        cairo_surface_destroy(scratch); return NULL;
+    }
+
+    result = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+                                        (int)(target_w + 0.5), (int)(target_h + 0.5));
+    if (cairo_surface_status(result) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(scratch); cairo_surface_destroy(result); return NULL;
+    }
+
+    sx = target_w  / (double)(x_max - x_min + 1);
+    sy = target_h  / (double)(y_max - y_min + 1);
+
+    tcr = cairo_create(result);
+    cairo_scale(tcr, sx, sy);
+    cairo_set_source_surface(tcr, scratch, -(double)x_min, -(double)y_min);
+    cairo_paint(tcr);
+    cairo_destroy(tcr);
+
+    cairo_surface_destroy(scratch);
+    return result;
+}
+
+/* Return a cached card surface, rendering and scanning on first use. */
+static cairo_surface_t *get_card_surf(const char *id, int key, double card_w, double card_h)
+{
+    if (s_surf_card_w != card_w || s_surf_card_h != card_h)
+        card_surf_clear();
+
+    if (key < 0 || key >= CARD_CACHE_TOTAL) return NULL;
+
+    if (!s_card_surf[key]) {
+        s_card_surf[key] = make_card_surf(id, card_w, card_h);
+        s_surf_card_w = card_w;
+        s_surf_card_h = card_h;
+    }
+    return s_card_surf[key];
+}
 
 static void update_ui(void);
 static gboolean board_expose(GtkWidget *widget, GdkEventExpose *event, gpointer data);
@@ -84,6 +230,32 @@ static void app_log(const char *message)
         return;
     fprintf(f, "[app] %s\n", message);
     fclose(f);
+}
+
+static void load_card_svg(void)
+{
+    GError *error = NULL;
+
+    app.card_svg = rsvg_handle_new_from_file(SVG_CARDS_PATH, &error);
+    if (app.card_svg != NULL) {
+        app_log("loaded SVG card deck from extension assets");
+        return;
+    }
+    if (error != NULL) {
+        g_error_free(error);
+        error = NULL;
+    }
+
+    app.card_svg = rsvg_handle_new_from_file(SVG_CARDS_DEV_PATH, &error);
+    if (app.card_svg != NULL) {
+        app_log("loaded SVG card deck from local assets");
+        return;
+    }
+    if (error != NULL) {
+        app_log(error->message);
+        g_error_free(error);
+    }
+    app_log("SVG card deck unavailable; using Cairo fallback cards");
 }
 
 static void set_message(const char *message)
@@ -503,15 +675,43 @@ static void draw_empty_slot(cairo_t *cr, Rect r, const char *label)
 
 static void draw_foundation_slot(cairo_t *cr, Rect r, int suit)
 {
-    char label[16];
+    char             ace_id[16];
+    cairo_surface_t *ace_surf;
 
-    snprintf(label, sizeof(label), "ACE %s", solitaire_suit_label(suit));
-    draw_empty_slot(cr, r, label);
-    draw_suit_icon(cr, suit, r.x + r.w * 0.50, r.y + r.h * 0.66, MIN(r.w, r.h) * 0.22);
+    /* Draw the empty slot background and border. */
+    rounded_rect(cr, r, 8.0);
+    cairo_set_source_rgb(cr, 0.90, 0.90, 0.86);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.12, 0.12, 0.12);
+    cairo_set_line_width(cr, 2.4);
+    cairo_stroke(cr);
+
+    /* Overlay a faint ace card as a visual hint. */
+    snprintf(ace_id, sizeof(ace_id), "%s_1", card_suit_id(suit));
+    ace_surf = get_card_surf(ace_id, card_surf_key(suit, 1), r.w, r.h);
+    if (ace_surf) {
+        cairo_save(cr);
+        rounded_rect(cr, r, 8.0);
+        cairo_clip(cr);
+        cairo_set_source_surface(cr, ace_surf, r.x, r.y);
+        cairo_paint_with_alpha(cr, 0.35);
+        cairo_restore(cr);
+    } else {
+        char label[16];
+        snprintf(label, sizeof(label), "ACE %s", solitaire_suit_label(suit));
+        cairo_set_source_rgb(cr, 0.18, 0.18, 0.18);
+        draw_centered_text(cr, label, r, 20.0);
+        draw_suit_icon(cr, suit, r.x + r.w * 0.50, r.y + r.h * 0.66, MIN(r.w, r.h) * 0.22);
+    }
 }
+
+static gboolean render_svg_card_sub(cairo_t *cr, Rect r, const char *id, int cache_key);
 
 static void draw_card_back(cairo_t *cr, Rect r)
 {
+    if (render_svg_card_sub(cr, r, "back", CARD_CACHE_BACK))
+        return;
+
     rounded_rect(cr, r, 8.0);
     cairo_set_source_rgb(cr, 0.12, 0.12, 0.12);
     cairo_fill_preserve(cr);
@@ -545,6 +745,68 @@ static void draw_card_corner(cairo_t *cr, Rect box, SolCard card, double text_si
 
     set_card_ink(cr, card.suit);
     draw_centered_text(cr, label, box, text_size);
+}
+
+static const char *card_suit_id(int suit)
+{
+    switch (suit) {
+    case SOL_HEARTS:
+        return "heart";
+    case SOL_DIAMONDS:
+        return "diamond";
+    case SOL_CLUBS:
+        return "club";
+    default:
+        return "spade";
+    }
+}
+
+static gboolean render_svg_card_sub(cairo_t *cr, Rect r, const char *id, int cache_key)
+{
+    cairo_surface_t *surf;
+
+    if (app.card_svg == NULL || id == NULL)
+        return FALSE;
+
+    surf = get_card_surf(id, cache_key, r.w, r.h);
+    if (!surf || cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS)
+        return FALSE;
+
+    /* White base guarantees a visible card even if SVG content is sparse. */
+    rounded_rect(cr, r, 8.0);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 0.97);
+    cairo_fill(cr);
+
+    cairo_save(cr);
+    rounded_rect(cr, r, 8.0);
+    cairo_clip(cr);
+    cairo_set_source_surface(cr, surf, r.x, r.y);
+    cairo_paint(cr);
+    cairo_restore(cr);
+
+    rounded_rect(cr, r, 8.0);
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    cairo_set_line_width(cr, 2.4);
+    cairo_stroke(cr);
+    return TRUE;
+}
+
+static gboolean draw_svg_card_face(cairo_t *cr, Rect r, SolCard card)
+{
+    char id[64];
+    int key = card_surf_key(card.suit, card.rank);
+
+    if (card.rank >= 11) {
+        const char *face = card.rank == 11 ? "jack" : (card.rank == 12 ? "queen" : "king");
+        snprintf(id, sizeof(id), "%s_%s", face, card_suit_id(card.suit));
+    } else {
+        snprintf(id, sizeof(id), "%s_%d", card_suit_id(card.suit), card.rank);
+    }
+
+    if (!render_svg_card_sub(cr, r, id, key))
+        return FALSE;
+
+    return TRUE;
 }
 
 static void draw_card_pip(cairo_t *cr, SolCard card, Rect area, double nx, double ny, gboolean inverted)
@@ -655,6 +917,9 @@ static void draw_card_face(cairo_t *cr, Rect r, SolCard card)
 {
     Rect top_box = { r.x + 5.0, r.y + 5.0, r.w * 0.44, r.h * 0.25 };
     Rect pip_area = { r.x + r.w * 0.16, r.y + r.h * 0.28, r.w * 0.68, r.h * 0.50 };
+
+    if (draw_svg_card_face(cr, r, card))
+        return;
 
     rounded_rect(cr, r, 8.0);
     cairo_set_source_rgb(cr, 1.0, 1.0, 0.97);
@@ -1024,6 +1289,7 @@ int main(int argc, char **argv)
 
     gtk_init(&argc, &argv);
     app_install_kindle_style();
+    load_card_svg();
     app.game_mode = APP_GAME_KLONDIKE_DRAW1;
 
     app.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -1088,5 +1354,8 @@ int main(int argc, char **argv)
 
     gtk_widget_show_all(app.window);
     gtk_main();
+    svg_atlas_clear();
+    if (app.card_svg != NULL)
+        g_object_unref(app.card_svg);
     return 0;
 }
