@@ -20,10 +20,13 @@
 #define KINDLE_WINDOW_TITLE "L:A_N:application_ID:kindleaisleriot_PC:N_O:URL"
 #define KINDLE_WINDOW_TITLE_TOPBAR "L:A_N:application_PC:T_ID:kindleaisleriot_O:URL"
 #define LOG_PATH "/mnt/us/kindle-aisleriot.log"
-#define SAVE_PATH "/mnt/us/documents/kindle-aisleriot.save"
+#define SAVE_PATH "/mnt/us/extensions/kindle-aisleriot/kindle-aisleriot.save"
+#define LEGACY_SAVE_PATH "/mnt/us/documents/kindle-aisleriot.save"
 #define SAVE_MAGIC "KAISLERIOT1"
 #define SVG_CARDS_PATH "/mnt/us/extensions/kindle-aisleriot/assets/svg-cards-2.0.svg"
 #define SVG_CARDS_DEV_PATH "assets/svg-cards-2.0.svg"
+#define BONDED_CARDS_PATH "/mnt/us/extensions/kindle-aisleriot/assets/bonded.svg"
+#define BONDED_CARDS_DEV_PATH "assets/bonded.svg"
 #define KINDLE_APP_WIDTH 1072
 #define KINDLE_APP_HEIGHT 1448
 
@@ -47,13 +50,21 @@ typedef enum {
     APP_GAME_FREECELL
 } AppGameMode;
 
+typedef enum {
+    CARD_THEME_SIMPLIFIED = 0,
+    CARD_THEME_MODERN,
+    CARD_THEME_ORIGINAL
+} CardTheme;
+
 typedef struct {
     GtkWidget *window;
     GtkWidget *board;
     GtkWidget *status;
     GtkWidget *game_combo;
+    GtkWidget *theme_combo;
     SolitaireGame game;
     AppGameMode game_mode;
+    CardTheme card_theme;
     gboolean suppress_game_mode_cb;
     gboolean has_selection;
     SolLocation selected;
@@ -67,7 +78,8 @@ typedef struct {
     double card_w;
     double card_h;
     double tableau_gap;
-    RsvgHandle *card_svg;
+    RsvgHandle *modern_card_svg;
+    RsvgHandle *bonded_card_svg;
 } AppState;
 
 typedef struct {
@@ -128,7 +140,16 @@ static void svg_atlas_clear(void)
  * <use> cross-references resolve and the viewBox transform is applied normally.
  * The pixel scan then finds the card's true position in the scratch regardless
  * of what get_position_sub / get_dimensions_sub report. */
-static cairo_surface_t *make_card_surf(const char *id, double target_w, double target_h)
+static RsvgHandle *active_card_svg(void)
+{
+    if (app.card_theme == CARD_THEME_ORIGINAL)
+        return app.bonded_card_svg;
+    if (app.card_theme == CARD_THEME_MODERN)
+        return app.modern_card_svg;
+    return NULL;
+}
+
+static cairo_surface_t *make_card_surf(RsvgHandle *handle, const char *id, double target_w, double target_h)
 {
     char                   fragment[64];
     RsvgDimensionData      full_dims;
@@ -139,11 +160,11 @@ static cairo_surface_t *make_card_surf(const char *id, double target_w, double t
     int                    x, y, x_min, y_min, x_max, y_max;
     double                 render_scale, sx, sy;
 
-    if (!app.card_svg) return NULL;
+    if (!handle) return NULL;
     snprintf(fragment, sizeof(fragment), "#%s", id);
-    if (!rsvg_handle_has_sub(app.card_svg, fragment)) return NULL;
+    if (!rsvg_handle_has_sub(handle, fragment)) return NULL;
 
-    rsvg_handle_get_dimensions(app.card_svg, &full_dims);
+    rsvg_handle_get_dimensions(handle, &full_dims);
     if (full_dims.width <= 0 || full_dims.height <= 0) return NULL;
 
     /* Render scratch at ~800 px tall for good quality after downscale to target. */
@@ -159,7 +180,7 @@ static cairo_surface_t *make_card_surf(const char *id, double target_w, double t
 
     tcr = cairo_create(scratch);
     cairo_scale(tcr, render_scale, render_scale);
-    rsvg_handle_render_cairo_sub(app.card_svg, tcr, fragment);
+    rsvg_handle_render_cairo_sub(handle, tcr, fragment);
     cairo_destroy(tcr);
 
     /* Scan for the bounding box of rendered pixels. */
@@ -204,7 +225,7 @@ static cairo_surface_t *make_card_surf(const char *id, double target_w, double t
 }
 
 /* Return a cached card surface, rendering and scanning on first use. */
-static cairo_surface_t *get_card_surf(const char *id, int key, double card_w, double card_h)
+static cairo_surface_t *get_card_surf(RsvgHandle *handle, const char *id, int key, double card_w, double card_h)
 {
     if (s_surf_card_w != card_w || s_surf_card_h != card_h)
         card_surf_clear();
@@ -212,7 +233,7 @@ static cairo_surface_t *get_card_surf(const char *id, int key, double card_w, do
     if (key < 0 || key >= CARD_CACHE_TOTAL) return NULL;
 
     if (!s_card_surf[key]) {
-        s_card_surf[key] = make_card_surf(id, card_w, card_h);
+        s_card_surf[key] = make_card_surf(handle, id, card_w, card_h);
         s_surf_card_w = card_w;
         s_surf_card_h = card_h;
     }
@@ -232,30 +253,39 @@ static void app_log(const char *message)
     fclose(f);
 }
 
-static void load_card_svg(void)
+static RsvgHandle *load_svg_handle(const char *primary_path, const char *dev_path, const char *name)
 {
     GError *error = NULL;
+    RsvgHandle *handle;
 
-    app.card_svg = rsvg_handle_new_from_file(SVG_CARDS_PATH, &error);
-    if (app.card_svg != NULL) {
-        app_log("loaded SVG card deck from extension assets");
-        return;
+    handle = rsvg_handle_new_from_file(primary_path, &error);
+    if (handle != NULL) {
+        app_log(name);
+        return handle;
     }
     if (error != NULL) {
         g_error_free(error);
         error = NULL;
     }
 
-    app.card_svg = rsvg_handle_new_from_file(SVG_CARDS_DEV_PATH, &error);
-    if (app.card_svg != NULL) {
-        app_log("loaded SVG card deck from local assets");
-        return;
+    handle = rsvg_handle_new_from_file(dev_path, &error);
+    if (handle != NULL) {
+        app_log(name);
+        return handle;
     }
     if (error != NULL) {
         app_log(error->message);
         g_error_free(error);
     }
-    app_log("SVG card deck unavailable; using Cairo fallback cards");
+    return NULL;
+}
+
+static void load_card_svgs(void)
+{
+    app.modern_card_svg = load_svg_handle(SVG_CARDS_PATH, SVG_CARDS_DEV_PATH, "loaded SVG Cards 2.0 deck");
+    app.bonded_card_svg = load_svg_handle(BONDED_CARDS_PATH, BONDED_CARDS_DEV_PATH, "loaded bonded card deck");
+    if (app.modern_card_svg == NULL && app.bonded_card_svg == NULL)
+        app_log("SVG card decks unavailable; using Cairo fallback cards");
 }
 
 static void set_message(const char *message)
@@ -329,6 +359,17 @@ static void undo_cb(GtkWidget *widget, gpointer data)
     update_ui();
 }
 
+static void restart_cb(GtkWidget *widget, gpointer data)
+{
+    (void)widget;
+    (void)data;
+
+    solitaire_restart(&app.game);
+    app.has_selection = FALSE;
+    set_message("Restarted this deal.");
+    update_ui();
+}
+
 static void draw_cb(GtkWidget *widget, gpointer data)
 {
     SolMoveResult result;
@@ -383,6 +424,8 @@ static void load_cb(GtkWidget *widget, gpointer data)
     (void)data;
 
     f = fopen(SAVE_PATH, "rb");
+    if (f == NULL)
+        f = fopen(LEGACY_SAVE_PATH, "rb");
     if (f == NULL) {
         set_message("No saved game found.");
         update_ui();
@@ -421,6 +464,30 @@ static void game_mode_cb(GtkComboBox *combo, gpointer data)
         app.game_mode = APP_GAME_KLONDIKE_DRAW3;
     app.has_selection = FALSE;
     new_game();
+}
+
+static void theme_cb(GtkComboBox *combo, gpointer data)
+{
+    (void)data;
+
+    app.card_theme = (CardTheme)gtk_combo_box_get_active(combo);
+    if (app.card_theme < CARD_THEME_SIMPLIFIED || app.card_theme > CARD_THEME_ORIGINAL)
+        app.card_theme = CARD_THEME_SIMPLIFIED;
+    svg_atlas_clear();
+
+    switch (app.card_theme) {
+    case CARD_THEME_MODERN:
+        set_message("Card theme: Modern SVG.");
+        break;
+    case CARD_THEME_ORIGINAL:
+        set_message("Card theme: Original bonded.");
+        break;
+    case CARD_THEME_SIMPLIFIED:
+    default:
+        set_message("Card theme: Simplified large labels.");
+        break;
+    }
+    update_ui();
 }
 
 static void quit_cb(GtkWidget *widget, gpointer data)
@@ -677,6 +744,7 @@ static void draw_foundation_slot(cairo_t *cr, Rect r, int suit)
 {
     char             ace_id[16];
     cairo_surface_t *ace_surf;
+    RsvgHandle      *handle = active_card_svg();
 
     /* Draw the empty slot background and border. */
     rounded_rect(cr, r, 8.0);
@@ -687,8 +755,11 @@ static void draw_foundation_slot(cairo_t *cr, Rect r, int suit)
     cairo_stroke(cr);
 
     /* Overlay a faint ace card as a visual hint. */
-    snprintf(ace_id, sizeof(ace_id), "%s_1", card_suit_id(suit));
-    ace_surf = get_card_surf(ace_id, card_surf_key(suit, 1), r.w, r.h);
+    if (app.card_theme == CARD_THEME_ORIGINAL)
+        snprintf(ace_id, sizeof(ace_id), "1_%s", card_suit_id(suit));
+    else
+        snprintf(ace_id, sizeof(ace_id), "%s_1", card_suit_id(suit));
+    ace_surf = app.card_theme == CARD_THEME_SIMPLIFIED ? NULL : get_card_surf(handle, ace_id, card_surf_key(suit, 1), r.w, r.h);
     if (ace_surf) {
         cairo_save(cr);
         rounded_rect(cr, r, 8.0);
@@ -705,11 +776,13 @@ static void draw_foundation_slot(cairo_t *cr, Rect r, int suit)
     }
 }
 
-static gboolean render_svg_card_sub(cairo_t *cr, Rect r, const char *id, int cache_key);
+static gboolean render_svg_card_sub(RsvgHandle *handle, cairo_t *cr, Rect r, const char *id, int cache_key);
 
 static void draw_card_back(cairo_t *cr, Rect r)
 {
-    if (render_svg_card_sub(cr, r, "back", CARD_CACHE_BACK))
+    RsvgHandle *handle = active_card_svg();
+
+    if (render_svg_card_sub(handle, cr, r, "back", CARD_CACHE_BACK))
         return;
 
     rounded_rect(cr, r, 8.0);
@@ -761,14 +834,14 @@ static const char *card_suit_id(int suit)
     }
 }
 
-static gboolean render_svg_card_sub(cairo_t *cr, Rect r, const char *id, int cache_key)
+static gboolean render_svg_card_sub(RsvgHandle *handle, cairo_t *cr, Rect r, const char *id, int cache_key)
 {
     cairo_surface_t *surf;
 
-    if (app.card_svg == NULL || id == NULL)
+    if (handle == NULL || id == NULL)
         return FALSE;
 
-    surf = get_card_surf(id, cache_key, r.w, r.h);
+    surf = get_card_surf(handle, id, cache_key, r.w, r.h);
     if (!surf || cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS)
         return FALSE;
 
@@ -795,15 +868,22 @@ static gboolean draw_svg_card_face(cairo_t *cr, Rect r, SolCard card)
 {
     char id[64];
     int key = card_surf_key(card.suit, card.rank);
+    RsvgHandle *handle = active_card_svg();
+
+    if (app.card_theme == CARD_THEME_SIMPLIFIED)
+        return FALSE;
 
     if (card.rank >= 11) {
         const char *face = card.rank == 11 ? "jack" : (card.rank == 12 ? "queen" : "king");
         snprintf(id, sizeof(id), "%s_%s", face, card_suit_id(card.suit));
     } else {
-        snprintf(id, sizeof(id), "%s_%d", card_suit_id(card.suit), card.rank);
+        if (app.card_theme == CARD_THEME_ORIGINAL)
+            snprintf(id, sizeof(id), "%d_%s", card.rank, card_suit_id(card.suit));
+        else
+            snprintf(id, sizeof(id), "%s_%d", card_suit_id(card.suit), card.rank);
     }
 
-    if (!render_svg_card_sub(cr, r, id, key))
+    if (!render_svg_card_sub(handle, cr, r, id, key))
         return FALSE;
 
     return TRUE;
@@ -913,10 +993,48 @@ static void draw_face_card_art(cairo_t *cr, Rect area, SolCard card)
     cairo_restore(cr);
 }
 
+static void draw_simplified_card_face(cairo_t *cr, Rect r, SolCard card)
+{
+    Rect top_box = { r.x + 5.0, r.y + 5.0, r.w * 0.44, r.h * 0.25 };
+    Rect center_rank = { r.x + r.w * 0.10, r.y + r.h * 0.24, r.w * 0.80, r.h * 0.30 };
+    double suit_size = MIN(r.w, r.h) * 0.22;
+
+    rounded_rect(cr, r, 8.0);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 0.97);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    cairo_set_line_width(cr, 2.8);
+    cairo_stroke(cr);
+
+    draw_card_corner(cr, top_box, card, 21.0);
+
+    set_card_ink(cr, card.suit);
+    draw_centered_text(cr,
+                       solitaire_rank_label(card.rank),
+                       center_rank,
+                       MIN(r.h * 0.32, r.w * 0.46));
+    draw_suit_icon(cr,
+                   card.suit,
+                   r.x + r.w * 0.50,
+                   r.y + r.h * 0.67,
+                   suit_size);
+
+    cairo_save(cr);
+    cairo_translate(cr, r.x + r.w - 5.0, r.y + r.h - 5.0);
+    cairo_rotate(cr, G_PI);
+    draw_card_corner(cr, (Rect){ 0, 0, top_box.w, top_box.h }, card, 18.0);
+    cairo_restore(cr);
+}
+
 static void draw_card_face(cairo_t *cr, Rect r, SolCard card)
 {
     Rect top_box = { r.x + 5.0, r.y + 5.0, r.w * 0.44, r.h * 0.25 };
     Rect pip_area = { r.x + r.w * 0.16, r.y + r.h * 0.28, r.w * 0.68, r.h * 0.50 };
+
+    if (app.card_theme == CARD_THEME_SIMPLIFIED) {
+        draw_simplified_card_face(cr, r, card);
+        return;
+    }
 
     if (draw_svg_card_face(cr, r, card))
         return;
@@ -1278,6 +1396,20 @@ static GtkWidget *make_game_combo(void)
     return combo;
 }
 
+static GtkWidget *make_theme_combo(void)
+{
+    GtkWidget *combo = gtk_combo_box_new_text();
+    gtk_combo_box_append_text(GTK_COMBO_BOX(combo), "Simplified");
+    gtk_combo_box_append_text(GTK_COMBO_BOX(combo), "Modern SVG");
+    gtk_combo_box_append_text(GTK_COMBO_BOX(combo), "Original Bonded");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), app.card_theme);
+    gtk_widget_set_size_request(combo, 230, -1);
+    gtk_widget_add_events(combo, GDK_BUTTON_PRESS_MASK);
+    g_signal_connect(combo, "button-press-event", G_CALLBACK(combo_button_press_cb), NULL);
+    g_signal_connect(combo, "changed", G_CALLBACK(theme_cb), NULL);
+    return combo;
+}
+
 int main(int argc, char **argv)
 {
     GtkWidget *vbox;
@@ -1286,11 +1418,13 @@ int main(int argc, char **argv)
     GtkWidget *title;
     GtkWidget *settings;
     GtkWidget *mode_label;
+    GtkWidget *theme_label;
 
     gtk_init(&argc, &argv);
     app_install_kindle_style();
-    load_card_svg();
+    load_card_svgs();
     app.game_mode = APP_GAME_KLONDIKE_DRAW1;
+    app.card_theme = CARD_THEME_SIMPLIFIED;
 
     app.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(app.window), kindle_window_title());
@@ -1323,6 +1457,10 @@ int main(int argc, char **argv)
     g_signal_connect(button, "clicked", G_CALLBACK(undo_cb), NULL);
     gtk_box_pack_start(GTK_BOX(toolbar), button, TRUE, TRUE, 0);
 
+    button = gtk_button_new_with_label("Restart");
+    g_signal_connect(button, "clicked", G_CALLBACK(restart_cb), NULL);
+    gtk_box_pack_start(GTK_BOX(toolbar), button, TRUE, TRUE, 0);
+
     button = gtk_button_new_with_label("Save");
     g_signal_connect(button, "clicked", G_CALLBACK(save_cb), NULL);
     gtk_box_pack_start(GTK_BOX(toolbar), button, TRUE, TRUE, 0);
@@ -1341,6 +1479,10 @@ int main(int argc, char **argv)
     gtk_box_pack_start(GTK_BOX(settings), mode_label, FALSE, FALSE, 0);
     app.game_combo = make_game_combo();
     gtk_box_pack_start(GTK_BOX(settings), app.game_combo, FALSE, FALSE, 0);
+    theme_label = gtk_label_new("Cards");
+    gtk_box_pack_start(GTK_BOX(settings), theme_label, FALSE, FALSE, 0);
+    app.theme_combo = make_theme_combo();
+    gtk_box_pack_start(GTK_BOX(settings), app.theme_combo, FALSE, FALSE, 0);
 
     app.board = gtk_drawing_area_new();
     gtk_widget_set_size_request(app.board, 700, 900);
@@ -1355,7 +1497,9 @@ int main(int argc, char **argv)
     gtk_widget_show_all(app.window);
     gtk_main();
     svg_atlas_clear();
-    if (app.card_svg != NULL)
-        g_object_unref(app.card_svg);
+    if (app.modern_card_svg != NULL)
+        g_object_unref(app.modern_card_svg);
+    if (app.bonded_card_svg != NULL)
+        g_object_unref(app.bonded_card_svg);
     return 0;
 }

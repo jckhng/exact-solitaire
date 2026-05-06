@@ -9,3 +9,7 @@ License: GNU Lesser General Public License, version 2.1 or later
 This package uses Svg-cards-2.0.svg as the full-card artwork for Kindle
 Aisleriot. The game overlays high-contrast corner labels for readability on
 Kindle e-ink displays.
+
+The package also includes bonded.svg from the GNOME Aisleriot data directory as
+an optional "Original Bonded" card theme. GNOME/Aisleriot provenance and license
+notes are documented in docs/PROVENANCE.md and NOTICE.txt.

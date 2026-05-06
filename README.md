@@ -18,8 +18,8 @@ GNOME Aisleriot Guile/Scheme game collection.
 - Stock, waste, tableau, foundations, draw, undo, new game, and quit.
 - Draw 1 / Draw 3 mode toggle. Draw 3 is the default classic Klondike mode;
   Draw 1 remains available as an easier/casual option.
-- Full-card SVG artwork from SVG Cards 2.0 by David Bellot, with high-contrast
-  Kindle corner labels overlaid for e-ink readability.
+- Card theme selector: Simplified large-label cards, Modern SVG Cards 2.0, and
+  Original Bonded cards from GNOME Aisleriot.
 - KUAL extension package with bundled ARM GTK2/Cairo runtime libraries.
 
 ## Install

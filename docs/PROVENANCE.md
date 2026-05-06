@@ -22,6 +22,8 @@ by GNOME Aisleriot.
 - Source: <https://commons.wikimedia.org/wiki/File:Svg-cards-2.0.svg>
 - Original project source: <http://svg-cards.sourceforge.net/>
 - License: GNU Lesser General Public License, version 2.1 or later.
+- `assets/bonded.svg` is copied from the GNOME Aisleriot data directory and is
+  offered as the "Original Bonded" card theme.
 - Kindle Aisleriot overlays high-contrast corner labels on top of the SVG card
   faces for readability on grayscale e-ink displays.
 
