@@ -1,5 +1,5 @@
 /*
- * Kindle Aisleriot
+ * Exact Solitaire
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Unofficial Kindle-focused solitaire adaptation inspired by GNOME Aisleriot.
@@ -16,16 +16,16 @@
 
 #include "solitaire_engine.h"
 
-#define APP_TITLE "Kindle Aisleriot"
-#define KINDLE_WINDOW_TITLE "L:A_N:application_ID:kindleaisleriot_PC:N_O:URL"
-#define KINDLE_WINDOW_TITLE_TOPBAR "L:A_N:application_PC:T_ID:kindleaisleriot_O:URL"
-#define LOG_PATH "/mnt/us/kindle-aisleriot.log"
-#define SAVE_PATH "/mnt/us/extensions/kindle-aisleriot/kindle-aisleriot.save"
-#define LEGACY_SAVE_PATH "/mnt/us/documents/kindle-aisleriot.save"
+#define APP_TITLE "Exact Solitaire"
+#define KINDLE_WINDOW_TITLE "L:A_N:application_ID:exactsolitaire_PC:N_O:URL"
+#define KINDLE_WINDOW_TITLE_TOPBAR "L:A_N:application_PC:T_ID:exactsolitaire_O:URL"
+#define LOG_PATH "/mnt/us/exact-solitaire.log"
+#define SAVE_PATH "/mnt/us/extensions/exact-solitaire/exact-solitaire.save"
+#define LEGACY_SAVE_PATH "/mnt/us/documents/exact-solitaire.save"
 #define SAVE_MAGIC "KAISLERIOT1"
-#define SVG_CARDS_PATH "/mnt/us/extensions/kindle-aisleriot/assets/svg-cards-2.0.svg"
+#define SVG_CARDS_PATH "/mnt/us/extensions/exact-solitaire/assets/svg-cards-2.0.svg"
 #define SVG_CARDS_DEV_PATH "assets/svg-cards-2.0.svg"
-#define BONDED_CARDS_PATH "/mnt/us/extensions/kindle-aisleriot/assets/bonded.svg"
+#define BONDED_CARDS_PATH "/mnt/us/extensions/exact-solitaire/assets/bonded.svg"
 #define BONDED_CARDS_DEV_PATH "assets/bonded.svg"
 #define KINDLE_APP_WIDTH 1072
 #define KINDLE_APP_HEIGHT 1448
@@ -1437,7 +1437,7 @@ int main(int argc, char **argv)
     gtk_container_add(GTK_CONTAINER(app.window), vbox);
 
     title = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(title), "<b>Kindle Aisleriot</b>");
+    gtk_label_set_markup(GTK_LABEL(title), "<b>Exact Solitaire</b>");
     gtk_misc_set_alignment(GTK_MISC(title), 0.5, 0.5);
     gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
 
@@ -1491,7 +1491,7 @@ int main(int argc, char **argv)
     g_signal_connect(app.board, "button-press-event", G_CALLBACK(board_button), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), app.board, TRUE, TRUE, 0);
 
-    app_log("starting Kindle Aisleriot");
+    app_log("starting Exact Solitaire");
     new_game();
 
     gtk_widget_show_all(app.window);

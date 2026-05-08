@@ -1,4 +1,4 @@
-Kindle Aisleriot
+Exact Solitaire
 ================
 
 Unofficial Kindle-friendly solitaire game inspired by GNOME Aisleriot, with a

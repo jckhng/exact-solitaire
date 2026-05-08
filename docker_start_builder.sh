@@ -2,8 +2,8 @@
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-CONTAINER="${KINDLE_AISLERIOT_DOCKER_CONTAINER:-kindle-aisleriot-armhf-builder}"
-IMAGE="${KINDLE_AISLERIOT_DOCKER_IMAGE:-kindle-aisleriot-armhf-build:bullseye}"
+CONTAINER="${EXACT_SOLITAIRE_DOCKER_CONTAINER:-exact-solitaire-armhf-builder}"
+IMAGE="${EXACT_SOLITAIRE_DOCKER_IMAGE:-exact-solitaire-armhf-build:bullseye}"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     "$ROOT/docker_build_image.sh" >/dev/null
@@ -17,8 +17,8 @@ else
     docker run -d \
         --platform linux/arm/v7 \
         --name "$CONTAINER" \
-        -v "$ROOT:/src/kindle-aisleriot" \
-        -w /src/kindle-aisleriot \
+        -v "$ROOT:/src/exact-solitaire" \
+        -w /src/exact-solitaire \
         "$IMAGE" \
         sleep infinity >/dev/null
 fi

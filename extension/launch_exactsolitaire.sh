@@ -1,11 +1,11 @@
 #!/bin/sh
 
-EXT_DIR="/mnt/us/extensions/kindle-aisleriot"
-APP_BIN="$EXT_DIR/bin/armhf/kindle-aisleriot"
-APP_LOG="/mnt/us/kindle-aisleriot.log"
-APP_TITLE="Kindle Aisleriot"
+EXT_DIR="/mnt/us/extensions/exact-solitaire"
+APP_BIN="$EXT_DIR/bin/armhf/exact-solitaire"
+APP_LOG="/mnt/us/exact-solitaire.log"
+APP_TITLE="Exact Solitaire"
 APP_LOADER="$EXT_DIR/lib/armhf/ld-linux-armhf.so.3"
-RUNTIME_MODE="${KINDLE_AISLERIOT_RUNTIME:-auto}"
+RUNTIME_MODE="${EXACT_SOLITAIRE_RUNTIME:-auto}"
 
 if [ ! -x "$APP_BIN" ]; then
     echo "$APP_TITLE binary not found: $APP_BIN" >"$APP_LOG"
@@ -58,7 +58,7 @@ try_launch() {
     if kill -0 "$pid" 2>/dev/null || pgrep -f "$APP_BIN" >/dev/null 2>&1; then
         echo "Started runtime: $mode pid=$pid" >>"$APP_LOG"
         if command -v xwininfo >/dev/null 2>&1; then
-            DISPLAY=:0 xwininfo -root -tree 2>/dev/null | grep -i "aisleriot\\|kindleaisleriot\\|kindle" >>"$APP_LOG" 2>&1 || true
+            DISPLAY=:0 xwininfo -root -tree 2>/dev/null | grep -i "aisleriot\\|exactsolitaire\\|kindle" >>"$APP_LOG" 2>&1 || true
         fi
         exit 0
     fi

@@ -1,13 +1,14 @@
 # Native build outputs
-/kindle-aisleriot
+/exact-solitaire
 /smoke-test
 *.o
 
 # Generated package tree
 /dist/
+/release/
 /release/extensions/
 /release/documents/
-/release/kindle-aisleriot-extension/
+/release/exact-solitaire-extension/
 
 # Editor/OS noise
 *~

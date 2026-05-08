@@ -1,37 +1,37 @@
 {
   "items": [
     {
-      "name": "Kindle Aisleriot",
+      "name": "Exact Solitaire",
       "priority": 100,
       "items": [
         {
           "name": "Launch",
           "priority": 10,
-          "action": "/bin/sh ./launch_kindleaisleriot.sh",
+          "action": "/bin/sh ./launch_exactsolitaire.sh",
           "exitmenu": true
         },
         {
           "name": "Restart",
           "priority": 20,
-          "action": "/bin/sh ./launch_kindleaisleriot.sh --restart",
+          "action": "/bin/sh ./launch_exactsolitaire.sh --restart",
           "exitmenu": true
         },
         {
           "name": "Launch With Topbar",
           "priority": 25,
-          "action": "env KINDLE_SHOW_TOPBAR=1 /bin/sh ./launch_kindleaisleriot.sh --restart",
+          "action": "env KINDLE_SHOW_TOPBAR=1 /bin/sh ./launch_exactsolitaire.sh --restart",
           "exitmenu": true
         },
         {
           "name": "Stop",
           "priority": 30,
-          "action": "/bin/sh ./stop_kindleaisleriot.sh",
+          "action": "/bin/sh ./stop_exactsolitaire.sh",
           "exitmenu": false
         },
         {
           "name": "Tail Log",
           "priority": 40,
-          "action": "/bin/sh ./tail_log_kindleaisleriot.sh",
+          "action": "/bin/sh ./tail_log_exactsolitaire.sh",
           "exitmenu": false
         }
       ]

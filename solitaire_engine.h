@@ -1,10 +1,10 @@
 /*
- * Kindle Aisleriot solitaire engine
+ * Exact Solitaire solitaire engine
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#ifndef KINDLE_AISLERIOT_SOLITAIRE_ENGINE_H
-#define KINDLE_AISLERIOT_SOLITAIRE_ENGINE_H
+#ifndef EXACT_SOLITAIRE_SOLITAIRE_ENGINE_H
+#define EXACT_SOLITAIRE_SOLITAIRE_ENGINE_H
 
 #include <glib.h>
 

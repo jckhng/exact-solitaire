@@ -1,6 +1,6 @@
 # Provenance And Licensing
 
-Kindle Aisleriot is an unofficial Kindle-focused solitaire adaptation inspired
+Exact Solitaire is an unofficial Kindle-focused solitaire adaptation inspired
 by GNOME Aisleriot.
 
 - Upstream project: <https://gitlab.gnome.org/GNOME/aisleriot>
@@ -24,7 +24,7 @@ by GNOME Aisleriot.
 - License: GNU Lesser General Public License, version 2.1 or later.
 - `assets/bonded.svg` is copied from the GNOME Aisleriot data directory and is
   offered as the "Original Bonded" card theme.
-- Kindle Aisleriot overlays high-contrast corner labels on top of the SVG card
+- Exact Solitaire overlays high-contrast corner labels on top of the SVG card
   faces for readability on grayscale e-ink displays.
 
 ## What Is Kindle-Specific

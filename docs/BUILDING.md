@@ -6,9 +6,9 @@ Build the ARM Kindle binary and extension package with:
 ./docker_rebuild.sh
 ```
 
-The script starts the persistent `kindle-aisleriot-armhf-builder` container,
-builds `kindle-aisleriot`, runs `smoke-test`, and writes:
+The script starts the persistent `exact-solitaire-armhf-builder` container,
+builds `exact-solitaire`, runs `smoke-test`, and writes:
 
 ```text
-dist/kindle-aisleriot-extension.zip
+dist/exact-solitaire-extension.zip
 ```

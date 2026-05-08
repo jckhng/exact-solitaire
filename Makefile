@@ -9,13 +9,13 @@ TEST_OBJS = smoke_test.o solitaire_engine.o
 
 .PHONY: all clean
 
-all: kindle-aisleriot
+all: exact-solitaire
 
-kindle-aisleriot: $(OBJS)
+exact-solitaire: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 smoke-test: $(TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TEST_OBJS) $(LDLIBS)
 
 clean:
-	rm -f $(OBJS) $(TEST_OBJS) kindle-aisleriot smoke-test
+	rm -f $(OBJS) $(TEST_OBJS) exact-solitaire smoke-test

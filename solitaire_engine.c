@@ -1,5 +1,5 @@
 /*
- * Kindle Aisleriot solitaire engine
+ * Exact Solitaire solitaire engine
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 

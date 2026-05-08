@@ -1,5 +1,5 @@
 /*
- * Kindle Aisleriot smoke tests
+ * Exact Solitaire smoke tests
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 

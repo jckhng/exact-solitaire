@@ -1,4 +1,4 @@
-# Kindle Aisleriot
+# Exact Solitaire
 
 A practical Kindle-friendly Windows Solitaire-style Klondike app inspired by
 GNOME Aisleriot, using GTK2/Cairo and the same Mesquite/KUAL packaging approach
@@ -10,7 +10,7 @@ GNOME Aisleriot Guile/Scheme game collection.
 
 ## Screenshot
 
-![Kindle Aisleriot screenshot](kindle-aisleriot.png)
+![Exact Solitaire screenshot](exact-solitaire.png)
 
 ## Features
 
@@ -27,20 +27,20 @@ GNOME Aisleriot Guile/Scheme game collection.
 Use the prebuilt extension package:
 
 ```text
-release/kindle-aisleriot-extension.zip
+release/exact-solitaire-extension.zip
 ```
 
 Unzip it at the Kindle USB-storage root so it creates:
 
 ```text
-/mnt/us/extensions/kindle-aisleriot
-/mnt/us/documents/shortcut_kindleaisleriot.sh
+/mnt/us/extensions/exact-solitaire
+/mnt/us/documents/shortcut_exactsolitaire.sh
 ```
 
 Launch from KUAL:
 
 ```text
-KUAL -> Kindle Aisleriot -> Kindle Aisleriot
+KUAL -> Exact Solitaire -> Exact Solitaire
 ```
 
 ## Build

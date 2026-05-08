@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <extension>
   <information>
-    <name>Kindle Aisleriot</name>
-    <id>kindle_aisleriot</id>
+    <name>Exact Solitaire</name>
+    <id>exact_solitaire</id>
     <version>0.1.0</version>
   </information>
   <menus>

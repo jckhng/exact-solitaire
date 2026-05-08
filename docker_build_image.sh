@@ -2,7 +2,7 @@
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-IMAGE="${KINDLE_AISLERIOT_DOCKER_IMAGE:-kindle-aisleriot-armhf-build:bullseye}"
+IMAGE="${EXACT_SOLITAIRE_DOCKER_IMAGE:-exact-solitaire-armhf-build:bullseye}"
 
 docker build \
     --platform linux/arm/v7 \

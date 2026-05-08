@@ -1,7 +1,7 @@
-Kindle Aisleriot package
+Exact Solitaire package
 
 Install by unzipping the release archive at the Kindle USB-storage root.
-Launch from KUAL: Kindle Aisleriot -> Kindle Aisleriot.
+Launch from KUAL: Exact Solitaire -> Exact Solitaire.
 
 Inspired by GNOME Aisleriot:
 https://gitlab.gnome.org/GNOME/aisleriot
