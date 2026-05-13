@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1a3a1a"/>
+  <!-- Fanned cards -->
+  <rect x="60" y="120" width="120" height="170" rx="14" fill="#f5f5f5" stroke="#ccc" stroke-width="3" transform="rotate(-18 120 205)"/>
+  <rect x="100" y="100" width="120" height="170" rx="14" fill="#f5f5f5" stroke="#ccc" stroke-width="3" transform="rotate(-8 160 185)"/>
+  <rect x="160" y="95" width="120" height="170" rx="14" fill="#f5f5f5" stroke="#ccc" stroke-width="3"/>
+  <!-- Heart on front card -->
+  <text x="175" y="155" font-size="70" fill="#b03030" font-family="serif">♥</text>
+  <text x="237" y="245" font-size="44" fill="#b03030" font-family="serif" transform="rotate(180 258 230)">♥</text>
+  <!-- Spade on fanned card -->
+  <text x="112" y="160" font-size="48" fill="#222" font-family="serif" transform="rotate(-8 136 140)">♠</text>
+  <!-- Foundation pile -->
+  <rect x="300" y="180" width="120" height="160" rx="14" fill="#c8e8c8" stroke="#6a9a6a" stroke-width="3"/>
+  <text x="335" y="280" font-size="70" fill="#b03030" font-family="serif">♥</text>
+</svg>
