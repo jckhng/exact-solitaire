@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // --- Types ---
 type Suit = 0 | 1 | 2 | 3; // hearts, diamonds, clubs, spades
@@ -298,9 +298,10 @@ function gameStatus(g: GameState): string {
 
 interface Selection { loc: Loc; }
 
-// Pixels visible of each stacked card. Up overlap raised so suit pip is never hidden behind the next card.
-const OVERLAP_DOWN_PX = 18;
-const OVERLAP_UP_PX = 52;
+// Fractions of rendered card height visible in a tableau stack.
+const OVERLAP_DOWN_RATIO = 18 / 160;
+const OVERLAP_UP_RATIO = 52 / 160;
+const CARD_ASPECT_H = 123 / 79;
 const CARD_APPROX_H = 160;
 
 function CardView({ card, onClick, selected, style, className, theme }: {
@@ -365,12 +366,30 @@ export default function App() {
   const [page, setPage] = useState<"game" | "about">("game");
   const [drawCount, setDrawCount] = useState(initial.game.drawCount || 1);
   const [cardTheme, setCardTheme] = useState<CardTheme>(initial.cardTheme);
+  const tableauRowRef = useRef<HTMLDivElement | null>(null);
+  const [cardHeight, setCardHeight] = useState(CARD_APPROX_H);
 
   const won = useMemo(() => isWon(game), [game]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ game, savedGame, cardTheme }));
   }, [game, savedGame, cardTheme]);
+
+  const tabCount = game.mode === "klondike" ? 7 : 8;
+
+  useEffect(() => {
+    const row = tableauRowRef.current;
+    if (!row) return;
+    const updateCardHeight = () => {
+      const firstCol = row.querySelector<HTMLElement>(".tableau-col");
+      if (!firstCol) return;
+      setCardHeight(Math.max(60, firstCol.clientWidth * CARD_ASPECT_H));
+    };
+    updateCardHeight();
+    const observer = new ResizeObserver(updateCardHeight);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [tabCount]);
 
   function trySelect(loc: Loc) {
     if (won) return;
@@ -438,8 +457,6 @@ export default function App() {
   const isSel = (loc: Loc) =>
     selection?.loc.type === loc.type && selection.loc.index === loc.index;
 
-  const tabCount = game.mode === "klondike" ? 7 : 8;
-
   function renderTableauCol(col: number) {
     const pile = game.tableau[col];
     const colSelected = isSel({ type: "tableau", index: col });
@@ -448,9 +465,9 @@ export default function App() {
     let offset = 0;
     for (let i = 0; i < pile.cards.length; i++) {
       topOffsets.push(offset);
-      offset += pile.cards[i].faceUp ? OVERLAP_UP_PX : OVERLAP_DOWN_PX;
+      offset += cardHeight * (pile.cards[i].faceUp ? OVERLAP_UP_RATIO : OVERLAP_DOWN_RATIO);
     }
-    const totalHeight = Math.max(CARD_APPROX_H, offset + CARD_APPROX_H);
+    const totalHeight = Math.max(cardHeight, offset + cardHeight);
     return (
       <div
         key={col}
@@ -459,7 +476,7 @@ export default function App() {
         onClick={() => pile.cards.length === 0 ? tapTableauCol(col, undefined) : undefined}
       >
         {pile.cards.length === 0 && (
-          <div className="empty-slot" style={{ position: "absolute", inset: 0, minHeight: CARD_APPROX_H }} />
+          <div className="empty-slot" style={{ position: "absolute", inset: 0, minHeight: cardHeight }} />
         )}
         {pile.cards.map((card, i) => {
           const isSelCard = selCardIdx !== undefined && i >= selCardIdx;
@@ -608,7 +625,7 @@ export default function App() {
             </div>
           )}
 
-          <div className={`tableau-row cols-${tabCount}`}>
+          <div ref={tableauRowRef} className={`tableau-row cols-${tabCount}`}>
             {Array.from({ length: tabCount }, (_, col) => renderTableauCol(col))}
           </div>
         </section>
